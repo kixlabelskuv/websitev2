@@ -1,0 +1,413 @@
+<script type="module">
+
+import * as THREE from "three";
+import { FontLoader } from "three/addons/loaders/FontLoader.js";
+import { TextGeometry } from "three/addons/geometries/TextGeometry.js";
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xffffff);
+
+const camera = new THREE.PerspectiveCamera(
+    35,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    100
+);
+
+camera.position.set(0, 0, 14);
+
+const renderer = new THREE.WebGLRenderer({
+    antialias: true
+});
+
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+document.body.appendChild(renderer.domElement);
+
+
+/* LIGHTING */
+
+scene.add(
+    new THREE.HemisphereLight(
+        0xffffff,
+        0xffffff,
+        3
+    )
+);
+
+const light = new THREE.DirectionalLight(
+    0xffffff,
+    4
+);
+
+light.position.set(-4, 5, 8);
+scene.add(light);
+
+
+/* LOGO */
+
+const logo = new THREE.Group();
+scene.add(logo);
+
+
+/* MOUSE */
+
+const mouse = new THREE.Vector2(999, 999);
+const raycaster = new THREE.Raycaster();
+
+let hovered = null;
+
+window.addEventListener("pointermove", (event) => {
+
+    mouse.x =
+        (event.clientX / window.innerWidth) * 2 - 1;
+
+    mouse.y =
+        -(event.clientY / window.innerHeight) * 2 + 1;
+
+});
+
+
+/* COLORS */
+
+const BLUE = 0x8ec5f2;
+const GREEN = 0x49c96b;
+const RED = 0xf04444;
+
+
+/* FONT */
+
+const loader = new FontLoader();
+
+loader.load(
+    "https://threejs.org/examples/fonts/helvetiker_bold.typeface.json",
+
+    (font) => {
+
+        createLogo(font);
+        animate();
+
+    },
+
+    undefined,
+
+    (error) => {
+
+        console.error("FONT ERROR:", error);
+
+    }
+);
+
+
+/* CREATE LETTER */
+
+function createLetter(character, color, size) {
+
+    const geometry = new TextGeometry(
+        character,
+        {
+            font: font,
+            size: size,
+            depth: 0.38,
+
+            curveSegments: 16,
+
+            bevelEnabled: true,
+            bevelThickness: 0.12,
+            bevelSize: 0.08,
+            bevelSegments: 6
+        }
+    );
+
+    geometry.computeBoundingBox();
+
+    const width =
+        geometry.boundingBox.max.x -
+        geometry.boundingBox.min.x;
+
+    const height =
+        geometry.boundingBox.max.y -
+        geometry.boundingBox.min.y;
+
+    geometry.center();
+
+    const material =
+        new THREE.MeshPhysicalMaterial({
+
+            color: color,
+
+            roughness: 0.2,
+
+            metalness: 0,
+
+            clearcoat: 0.7,
+
+            clearcoatRoughness: 0.15
+        });
+
+
+    const mesh =
+        new THREE.Mesh(
+            geometry,
+            material
+        );
+
+
+    mesh.userData.width = width;
+    mesh.userData.height = height;
+
+    mesh.userData.targetScale =
+        new THREE.Vector3(1, 1, 1);
+
+    mesh.userData.targetRotation =
+        new THREE.Vector3(0, 0, 0);
+
+    logo.add(mesh);
+
+    return mesh;
+}
+
+
+/* CREATE KIX */
+
+function createLogo(font) {
+
+    /*
+        Smaller overall proportions.
+
+        K = 100%
+        I = 80%
+        X = 50%
+    */
+
+    const K =
+        createLetter(
+            "K",
+            BLUE,
+            3.6
+        );
+
+    const I =
+        createLetter(
+            "I",
+            GREEN,
+            2.88
+        );
+
+    const X =
+        createLetter(
+            "X",
+            RED,
+            1.8
+        );
+
+
+    /*
+        Get real widths.
+    */
+
+    const kw = K.userData.width;
+    const iw = I.userData.width;
+    const xw = X.userData.width;
+
+
+    /*
+        Start with K.
+    */
+
+    K.position.x = 0;
+
+
+    /*
+        I slightly overlaps K.
+    */
+
+    I.position.x =
+        K.position.x +
+        kw / 2 +
+        iw / 2 -
+        0.12;
+
+
+    /*
+        X slightly overlaps I.
+    */
+
+    X.position.x =
+        I.position.x +
+        iw / 2 +
+        xw / 2 -
+        0.12;
+
+
+    /*
+        Find the total width
+        and center everything.
+    */
+
+    const left =
+        K.position.x - kw / 2;
+
+    const right =
+        X.position.x + xw / 2;
+
+    const totalCenter =
+        (left + right) / 2;
+
+
+    K.position.x -= totalCenter;
+    I.position.x -= totalCenter;
+    X.position.x -= totalCenter;
+
+
+    /*
+        Slight vertical offsets.
+    */
+
+    K.position.y = 0;
+
+    I.position.y = -0.08;
+
+    X.position.y = -0.25;
+
+
+    /*
+        Keep the whole thing
+        comfortably in the middle.
+    */
+
+    logo.scale.set(
+        0.82,
+        0.82,
+        0.82
+    );
+
+}
+
+
+/* HOVER */
+
+function updateHover() {
+
+    raycaster.setFromCamera(
+        mouse,
+        camera
+    );
+
+    const hits =
+        raycaster.intersectObjects(
+            logo.children,
+            false
+        );
+
+    hovered =
+        hits.length
+            ? hits[0].object
+            : null;
+
+
+    logo.children.forEach(
+        (letter) => {
+
+            if (letter === hovered) {
+
+                letter.userData.targetScale.set(
+                    1.10,
+                    1.10,
+                    1.13
+                );
+
+                letter.userData.targetRotation.set(
+                    0.02,
+                    0.06,
+                    -0.015
+                );
+
+            } else {
+
+                letter.userData.targetScale.set(
+                    1,
+                    1,
+                    1
+                );
+
+                letter.userData.targetRotation.set(
+                    0,
+                    0,
+                    0
+                );
+
+            }
+
+        }
+    );
+}
+
+
+/* ANIMATION */
+
+function animate() {
+
+    requestAnimationFrame(animate);
+
+    updateHover();
+
+    logo.children.forEach(
+        (letter) => {
+
+            letter.scale.lerp(
+                letter.userData.targetScale,
+                0.12
+            );
+
+            letter.rotation.x +=
+                (
+                    letter.userData.targetRotation.x -
+                    letter.rotation.x
+                ) * 0.12;
+
+            letter.rotation.y +=
+                (
+                    letter.userData.targetRotation.y -
+                    letter.rotation.y
+                ) * 0.12;
+
+            letter.rotation.z +=
+                (
+                    letter.userData.targetRotation.z -
+                    letter.rotation.z
+                ) * 0.12;
+
+        }
+    );
+
+    renderer.render(
+        scene,
+        camera
+    );
+}
+
+
+/* RESIZE */
+
+window.addEventListener(
+    "resize",
+    () => {
+
+        camera.aspect =
+            window.innerWidth /
+            window.innerHeight;
+
+        camera.updateProjectionMatrix();
+
+        renderer.setSize(
+            window.innerWidth,
+            window.innerHeight
+        );
+
+    }
+);
+
+</script>
